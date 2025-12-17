@@ -3,6 +3,12 @@ name: Dependabot Auto-Merge
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to test and merge'
+        type: number
+        required: true
 
 permissions:
   contents: write
@@ -11,11 +17,25 @@ permissions:
 jobs:
   test-and-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    # For pull_request events, only run for dependabot. For workflow_dispatch, always run.
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'dependabot[bot]'
 
     steps:
-      - name: Checkout repository
+      - name: Get PR info
+        id: pr-info
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "pr_number=${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout PR
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ steps.pr-info.outputs.pr_number }}/head
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,14 +54,12 @@ jobs:
 
       - name: Enable auto-merge
         if: success()
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: gh pr merge --auto --squash "${{ steps.pr-info.outputs.pr_number }}"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve PR
         if: success()
-        run: gh pr review --approve "$PR_URL"
+        run: gh pr review --approve "${{ steps.pr-info.outputs.pr_number }}"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
