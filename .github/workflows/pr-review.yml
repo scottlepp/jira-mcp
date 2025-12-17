@@ -26,8 +26,8 @@ jobs:
   review-pr:
     runs-on: ubuntu-latest
     environment: jira-mcp
-    # Don't review PRs created by the bot itself
-    if: github.actor != 'github-actions[bot]'
+    # Don't review PRs created by bots (no secrets access for dependabot)
+    if: github.actor != 'github-actions[bot]' && github.actor != 'dependabot[bot]'
 
     steps:
       - name: Checkout repository
