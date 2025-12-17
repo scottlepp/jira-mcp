@@ -17,7 +17,6 @@ export type {
 export { BaseAgent } from './agents/base-agent.js';
 
 // Agent implementations
-export { SecurityAgent } from './agents/security-agent.js';
 export { BugFixAgent } from './agents/bug-fix-agent.js';
 export { PRReviewAgent } from './agents/pr-review-agent.js';
 
