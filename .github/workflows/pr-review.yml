@@ -1,0 +1,79 @@
+name: PR Review Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        type: number
+        required: true
+      focus_areas:
+        description: 'Focus areas (comma-separated: security,performance,logic,tests,style)'
+        type: string
+        default: 'security,logic,tests'
+      suggest_tests:
+        description: 'Suggest tests for untested code'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review-pr:
+    runs-on: ubuntu-latest
+    # Don't review PRs created by the bot itself
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install main dependencies
+        run: npm ci
+
+      - name: Install agent dependencies
+        run: cd scripts/agents && npm ci
+
+      - name: Determine PR Number
+        id: pr-number
+        run: |
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            echo "pr_number=${{ inputs.pr_number }}" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run PR Review Agent
+        id: pr-review-agent
+        run: npx tsx scripts/agents/src/agents/pr-review-agent.ts
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.pr_number }}
+          FOCUS_AREAS: ${{ inputs.focus_areas || 'security,logic,tests' }}
+          SUGGEST_TESTS: ${{ inputs.suggest_tests || 'true' }}
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## PR Review Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The PR Review Agent has completed analyzing PR #${{ steps.pr-number.outputs.pr_number }}." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- PR Number: #${{ steps.pr-number.outputs.pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Focus Areas: ${{ inputs.focus_areas || 'security,logic,tests' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Suggest Tests: ${{ inputs.suggest_tests || 'true' }}" >> $GITHUB_STEP_SUMMARY

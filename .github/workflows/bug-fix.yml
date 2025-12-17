@@ -1,0 +1,75 @@
+name: Bug Fix Agent
+
+on:
+  schedule:
+    # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Specific issue number to fix (leave empty to process all bug issues)'
+        type: number
+        required: false
+      max_issues:
+        description: 'Maximum number of issues to process'
+        type: number
+        default: 3
+      create_pr:
+        description: 'Create PRs for fixes'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  process-bugs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install main dependencies
+        run: npm ci
+
+      - name: Install agent dependencies
+        run: cd scripts/agents && npm ci
+
+      - name: Run Bug Fix Agent
+        id: bug-fix-agent
+        run: npx tsx scripts/agents/src/agents/bug-fix-agent.ts
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number || '' }}
+          MAX_ISSUES: ${{ inputs.max_issues || '3' }}
+          CREATE_PR: ${{ inputs.create_pr || 'true' }}
+
+      - name: Post summary
+        if: always()
+        run: |
+          echo "## Bug Fix Agent Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The Bug Fix Agent has completed processing." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Issue Number: ${{ inputs.issue_number || 'All bug-labeled issues' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Max Issues: ${{ inputs.max_issues || '3' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Create PRs: ${{ inputs.create_pr || 'true' }}" >> $GITHUB_STEP_SUMMARY
