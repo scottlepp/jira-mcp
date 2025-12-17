@@ -27,6 +27,7 @@ permissions:
 jobs:
   process-bugs:
     runs-on: ubuntu-latest
+    environment: jira-mcp
 
     steps:
       - name: Checkout repository

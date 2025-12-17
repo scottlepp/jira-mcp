@@ -27,6 +27,7 @@ permissions:
 jobs:
   security-scan:
     runs-on: ubuntu-latest
+    environment: jira-mcp
     env:
       UPDATES_MADE: 'false'
 
