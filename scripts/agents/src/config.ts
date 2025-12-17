@@ -39,13 +39,19 @@ export function getConfig(): AgentConfig {
   }
 
   // Parse repo from GITHUB_REPOSITORY (owner/repo format) or use individual vars
-  let repoOwner = process.env.REPO_OWNER || process.env.GITHUB_REPOSITORY_OWNER || '';
+  let repoOwner = process.env.REPO_OWNER || '';
   let repoName = process.env.REPO_NAME || '';
 
-  if (process.env.GITHUB_REPOSITORY && !repoOwner) {
+  // If we don't have both owner and name from explicit vars, try parsing GITHUB_REPOSITORY
+  if (process.env.GITHUB_REPOSITORY && (!repoOwner || !repoName)) {
     const [owner, name] = process.env.GITHUB_REPOSITORY.split('/');
-    repoOwner = owner;
-    repoName = name;
+    if (!repoOwner) repoOwner = owner;
+    if (!repoName) repoName = name;
+  }
+
+  // Fall back to GITHUB_REPOSITORY_OWNER if still no owner
+  if (!repoOwner && process.env.GITHUB_REPOSITORY_OWNER) {
+    repoOwner = process.env.GITHUB_REPOSITORY_OWNER;
   }
 
   return {
