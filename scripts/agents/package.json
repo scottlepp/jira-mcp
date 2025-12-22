@@ -14,7 +14,7 @@
     "pr-review": "tsx src/agents/pr-review-agent.ts"
   },
   "dependencies": {
-    "ai": "^5.0.114",
+    "ai": "^5.0.115",
     "@ai-sdk/google": "^2.0.44",
     "@octokit/rest": "^21.0.2",
     "zod": "^4.1.8",
